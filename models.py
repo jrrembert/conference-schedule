@@ -80,6 +80,52 @@ class ConferenceForms(messages.Message):
     """ConferenceForms -- multiple Conference outbound form message"""
     items = messages.MessageField(ConferenceForm, 1, repeated=True)
 
+
+class Session(ndb.Model):
+    """Session - Session object"""
+    name = ndb.StringProperty(required=True)
+    highlights = ndb.StringProperty()
+    speakers = ndb.StringProperty(repeated=True)
+    duration = ndb.StringProperty()
+    typeOfSession = ndb.StringProperty()
+    date = ndb.DateTimeProperty()
+    start_time = ndb.IntegerProperty()
+    websafeConferenceKey = ndb.StringProperty()
+    organizer_user_id = ndb.StringProperty()
+
+
+class SessionForm(messages.Message):
+    """SessionForm - Session outbound form message"""
+    name = messages.StringField(1)
+    highlights = messages.StringField(2)
+    speakers = messages.StringField(3, repeated=True)
+    duration = messages.StringField(4)
+    typeOfSession = messages.StringField(5)
+    date = messages.StringField(6)  # DateTimeField()
+    start_time = messages.IntegerField(7)
+    websafeConferenceKey = messages.StringField(8)
+    organizer_display_name = messages.StringField(9)
+
+
+class SessionForms(messages.Message):
+    """Session Forms -- multiple Session outbound form message"""
+    items = messages.MessageField(SessionForm, 1, repeated=True)
+
+
+# class Wishlist(ndb.Model):
+#     """Wishlist - Wishlist object"""
+#     session_ids = ndb.StringProperty(repeated=True)
+#     websafeConferenceKey = ndb.StringProperty()
+#     attendee_user_id = ndb.StringProperty()
+
+
+# class WishlistForm(messages.Message):
+#     """WishlistForm - Wishlist outbound form message"""
+#     session_names = messages.StringField(1, repeated=True)
+#     websafeConferenceKey = messages.StringField(2)
+#     attendee_display_name = messages.StringField(3)
+
+
 class TeeShirtSize(messages.Enum):
     """TeeShirtSize -- t-shirt size enumeration value"""
     NOT_SPECIFIED = 1
