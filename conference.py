@@ -99,6 +99,11 @@ SESSION_POST_REQUEST = endpoints.ResourceContainer(
     websafeConferenceKey=messages.StringField(1),
     )
 
+WISHLIST_POST_REQUEST = endpoints.ResourceContainer(
+    ProfileWishListForm,
+    websafeSessionKey=messages.StringField(1)
+    }
+
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 def _getUserId():
@@ -493,7 +498,7 @@ class ConferenceApi(remote.Service):
         """Create a session for a given conference."""
         return self._createSessionObject(request)
 
-# - - - Wishlist objects - - - - - - - - - - - - - - - - - - -
+# - - - Wishlist methods - - - - - - - - - - - - - - - - - - -
 
     @endpoints.method(message_types.VoidMessage, SessionForms,
         path='wishlist',
@@ -521,7 +526,7 @@ class ConferenceApi(remote.Service):
         return SessionForms(
             items=[self._copySessionToForm(item[0], item[1].displayName) for item in paired_session_profile_tuples])
 
-    @endpoints.method(ProfileWishListForm, ProfileForm,
+    @endpoints.method(WISHLIST_POST_REQUEST, ProfileForm,
         path='wishlist/{websafeSessionKey}',
         http_method='POST', name='addSessionToWishlist')
     def addSessionToWishList(self, request):
