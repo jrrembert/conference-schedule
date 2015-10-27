@@ -33,6 +33,7 @@ from models import Profile, ProfileMiniForm, ProfileForm, ProfileWishListForm
 from models import StringMessage, BooleanMessage
 from models import Conference, ConferenceForm, ConferenceForms
 from models import ConferenceQueryForm, ConferenceQueryForms
+from models import SessionQueryForm, SessionQueryForms
 from models import Session, SessionForm, SessionForms
 from models import TeeShirtSize
 
@@ -77,6 +78,16 @@ FIELDS =    {
             'MAX_ATTENDEES': 'maxAttendees',
             }
 
+SESSION_FIELDS = {
+    'NAME': 'name',
+    'HIGHLIGHTS': 'highlights',
+    'SPEAKERS': 'speakers',
+    'DURATION': 'duration',
+    'TYPEOFSESSION': 'typeOfSession',
+    'DATE': 'date',
+    'START_TIME': 'start_time',
+}
+
 CONF_GET_REQUEST = endpoints.ResourceContainer(
     message_types.VoidMessage,
     websafeConferenceKey=messages.StringField(1),
@@ -102,7 +113,7 @@ SESSION_POST_REQUEST = endpoints.ResourceContainer(
 WISHLIST_POST_REQUEST = endpoints.ResourceContainer(
     ProfileWishListForm,
     websafeSessionKey=messages.StringField(1)
-    }
+    )
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -404,6 +415,9 @@ class ConferenceApi(remote.Service):
         if not request.name:
             raise endpoints.BadRequestException("Session 'name' field required")
 
+        if not isinstance(request.start_time, int) or not (0 <= request.start_time <= 24):
+            raise endpoints.BadRequestException("Session 'start_time' must be an integer from 0 to 23.")
+
         data = {field.name: getattr(request, field.name) for field in request.all_fields()}
         del data['organizer_display_name']
 
@@ -478,8 +492,6 @@ class ConferenceApi(remote.Service):
         """Find sessions featuring a specific speaker for a given conference."""
         conference = ndb.Key(urlsafe=request.websafeConferenceKey).get()
 
-        # print("conference: %s" % conference)
-        # print("conference parent: %s" % conference.key.parent().get())
         if not conference:
             raise endpoints.NotFoundException(
                 'No conference found with key: %s' % request.websafeConferenceKey)
@@ -491,6 +503,7 @@ class ConferenceApi(remote.Service):
         return SessionForms(
             items=[self._copySessionToForm(session, getattr(conference, 'organizerUserId')) for session in sessions])
 
+
     @endpoints.method(SESSION_POST_REQUEST, SessionForm,
         path='conference/{websafeConferenceKey}/sessions',
         http_method='POST', name='createSession')
@@ -498,7 +511,144 @@ class ConferenceApi(remote.Service):
         """Create a session for a given conference."""
         return self._createSessionObject(request)
 
+
+    @endpoints.method(SessionQueryForms, SessionForms,
+        path='querySessions',
+        http_method='POST',
+        name='querySessions')
+    def querySessions(self, request):
+        """Query for sessions."""
+        sessions = self._getSessionQuery(request)
+
+        # Fetch organizer displayName from profiles
+        organizers = [ndb.Key(Profile, session.organizer_user_id) for session in sessions]
+        profiles = ndb.get_multi(organizers)
+
+        display_names = {}
+        for profile in profiles:
+            display_names[profile.key.id()] = profile.displayName
+
+        return SessionForms(
+            items=[self._copySessionToForm(session, display_names[session.organizer_user_id]) for session in sessions])
+
+
+    @endpoints.method(SessionQueryForms, SessionForms,
+        path='querySessionsSpecial',
+        http_method='POST',
+        name='querySessionsSpecial')
+    def querySessionsSpecial(self, request):
+        session_query = Session.query()
+
+        sessions = []
+
+        sessions_after_seven_pm = Session.query(Session.start_time >= 18)
+        
+        for session in sessions_after_seven_pm:
+            if session.typeOfSession != 'Workshop':
+                sessions.append(session)
+
+        # Fetch organizer displayName from profiles
+        organizers = [ndb.Key(Profile, session.organizer_user_id) for session in sessions]
+        profiles = ndb.get_multi(organizers)
+
+        display_names = {}
+        for profile in profiles:
+            display_names[profile.key.id()] = profile.displayName
+
+        return SessionForms(
+            items=[self._copySessionToForm(session, display_names[session.organizer_user_id]) for session in sessions])
+
+
+    def _getSessionQuery(self, request):
+        """Return formatted query from the submitted filters."""
+        
+
+        q = Session.query()
+        
+
+        inequality_filter, filters = self._formatSessionFilters(request.filters)
+
+        # If exists, sort on inequality filter first
+        if not inequality_filter:
+            q = q.order(Session.name)
+        else:
+            q = q.order(ndb.GenericProperty(inequality_filter))
+            q = q.order(Session.name)
+
+        for filtr in filters:
+            if filtr["field"] in ["start_time"]:
+                filtr["value"] = int(filtr["value"])
+            formatted_query = ndb.query.FilterNode(filtr["field"], filtr["operator"], filtr["value"])
+            q = q.filter(formatted_query)
+
+        # if inequality_filter is not None:
+        #     filter_number = len(filters) + 1
+        # else:
+        #     filter_number = len(filters)
+
+        # print("Total filter number: %s" % len(request.filters))
+        # print("Filters: %s" % filters)
+        # print("Filter number: %s" % filter_number)
+
+        # new_request = SessionQueryForms(filters=request.filters[filter_number:len(request.filters)])
+
+        return q
+
+
+
+    def _formatSessionFilters(self, filters):
+        """Parse, check validity and format user supplied filters."""
+        formatted_filters = []
+        inequality_field = None
+
+        for f in filters:
+            filtr = {field.name: getattr(f, field.name) for field in f.all_fields()}
+
+            try:
+                filtr["field"] = SESSION_FIELDS[filtr["field"]]
+                filtr["operator"] = OPERATORS[filtr["operator"]]
+            except KeyError:
+                raise endpoints.BadRequestException("Filter contains invalid field or operator.")
+
+            # Every operation except "=" is an inequality
+            if filtr["operator"] != "=":
+                # check if inequality operation has been used in previous filters
+                # disallow the filter if inequality was performed on a different field before
+                # track the field on which the inequality operation is performed
+                if inequality_field and inequality_field != filtr["field"]:
+                    raise endpoints.BadRequestException("Inequality filter is allowed on only one field.")
+                else:
+                    inequality_field = filtr["field"]
+
+            formatted_filters.append(filtr)
+
+        return (inequality_field, formatted_filters)
+
 # - - - Wishlist methods - - - - - - - - - - - - - - - - - - -
+
+    def _create_or_update_wishlist_object(self, request, session):
+        """Add a session to a wishlist; create a wishlist if list doens't exist."""
+        user = endpoints.get_current_user()
+        if not user:
+            raise endpoints.UnauthorizedException('Authorization required')
+        user_id = _getUserId()
+
+        # Get logged in user profile
+        profile_key = ndb.Key(Profile, user_id)
+        profile = self._getProfileFromUser()
+        
+        # Get current session key array and add new session to array;
+        # return profile unchanged if session is already present
+        session_keys = profile.wishlist_session_keys
+        s_key = session.key.urlsafe()
+
+        if s_key not in session_keys:
+            session_keys.append(session.key.urlsafe())
+            setattr(profile, 'wishlist_session_keys', session_keys)
+            profile.put()
+            
+        return self._copyProfileToForm(profile)
+
 
     @endpoints.method(message_types.VoidMessage, SessionForms,
         path='wishlist',
@@ -533,30 +683,6 @@ class ConferenceApi(remote.Service):
         """Add a conference session to a user's wishlist."""
         session = ndb.Key(urlsafe=request.websafeSessionKey).get()
         return self._create_or_update_wishlist_object(request, session)
-
-    def _create_or_update_wishlist_object(self, request, session):
-        """Add a session to a wishlist; create a wishlist if list doens't exist."""
-        user = endpoints.get_current_user()
-        if not user:
-            raise endpoints.UnauthorizedException('Authorization required')
-        user_id = _getUserId()
-
-        # Get logged in user profile
-        profile_key = ndb.Key(Profile, user_id)
-        profile = self._getProfileFromUser()
-        
-        # Get current session key array and add new session to array;
-        # return profile unchanged if session is already present
-        session_keys = profile.wishlist_session_keys
-        s_key = session.key.urlsafe()
-
-        if s_key not in session_keys:
-            session_keys.append(session.key.urlsafe())
-            setattr(profile, 'wishlist_session_keys', session_keys)
-            profile.put()
-            
-        return self._copyProfileToForm(profile)
-
 
 # - - - Profile objects - - - - - - - - - - - - - - - - - - -
 
