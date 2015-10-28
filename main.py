@@ -15,12 +15,34 @@ __author__ = 'wesc+api@google.com (Wesley Chun)'
 import webapp2
 from google.appengine.api import app_identity
 from google.appengine.api import mail
+from google.appengine.api import memcache
+
 from conference import ConferenceApi
+from models import Session
+
 
 class SetAnnouncementHandler(webapp2.RequestHandler):
     def get(self):
         """Set Announcement in Memcache."""
         ConferenceApi._cacheAnnouncement()
+        self.response.set_status(204)
+
+
+class RefreshFeaturedSpeakerCacheHandler(webapp2.RequestHandler):
+    def get(self):
+        """Periodically refresh featured speaker info in memcache."""
+        
+        # Start with a fresh cache
+        memcache.flush_all()
+
+        # Iterate through all sessions, updating featured speaker cache
+        conf_api = ConferenceApi()        
+        sessions = Session.query()
+        for session in sessions:
+            session_data = {'speakers': session.speakers,
+            'websafeConferenceKey': session.websafeConferenceKey}
+            conf_api._cacheFeaturedSpeakerInfo(session_data)
+        
         self.response.set_status(204)
 
 
@@ -37,6 +59,7 @@ class SendConferenceConfirmationEmailHandler(webapp2.RequestHandler):
                 'conferenceInfo')
         )
 
+
 class SendSessionConfirmationEmailHandler(webapp2.RequestHandler):
     def post(self):
         """Send email confirming Session creation."""
@@ -45,14 +68,27 @@ class SendSessionConfirmationEmailHandler(webapp2.RequestHandler):
                 app_identity.get_application_id()),     # from
             self.request.get('email'),                  # to
             'You created a new Session!',            # subj
-            'Hi, you have created a following '         # body
+            'Hi, you have created the following '         # body
             'session\r\n\r\n%s' % self.request.get(
                 'sessionInfo')
         )
 
 
+class SetFeaturedSpeakerHandler(webapp2.RequestHandler):
+    def post(self):
+        """Calculate number of sessions for each speaker in conference."""
+        session_data = {'speakers': self.request.get('speakers'),
+            'websafeConferenceKey': self.request.get('websafeConferenceKey')}
+        
+        conf_api = ConferenceApi()
+        conf_api._cacheFeaturedSpeakerInfo(session_data)
+        self.response.set_status(204)        
+
+
 app = webapp2.WSGIApplication([
     ('/crons/set_announcement', SetAnnouncementHandler),
+    ('/crons/refresh_featured_speaker_cache', RefreshFeaturedSpeakerCacheHandler),
     ('/tasks/send_conference_confirmation_email', SendConferenceConfirmationEmailHandler),
-    ('/tasks/send_session_confirmation_email', SendSessionConfirmationEmailHandler)
+    ('/tasks/send_session_confirmation_email', SendSessionConfirmationEmailHandler),
+    ('/tasks/set_featured_speaker', SetFeaturedSpeakerHandler)
 ], debug=True)

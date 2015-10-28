@@ -54,6 +54,7 @@ class BooleanMessage(messages.Message):
     """BooleanMessage-- outbound Boolean value message"""
     data = messages.BooleanField(1)
 
+
 class Conference(ndb.Model):
     """Conference -- Conference object"""
     name            = ndb.StringProperty(required=True)
@@ -66,6 +67,8 @@ class Conference(ndb.Model):
     endDate         = ndb.DateProperty()
     maxAttendees    = ndb.IntegerProperty()
     seatsAvailable  = ndb.IntegerProperty()
+    featured_speakers = ndb.StringProperty(repeated=True)
+
 
 class ConferenceForm(messages.Message):
     """ConferenceForm -- Conference outbound form message"""
@@ -79,12 +82,20 @@ class ConferenceForm(messages.Message):
     maxAttendees    = messages.IntegerField(8)
     seatsAvailable  = messages.IntegerField(9)
     endDate         = messages.StringField(10) #DateTimeField()
-    websafeKey      = messages.StringField(11)
-    organizerDisplayName = messages.StringField(12)
+    featured_speakers = messages.StringField(11, repeated=True)
+    websafeKey      = messages.StringField(12)
+    organizerDisplayName = messages.StringField(13)
+
 
 class ConferenceForms(messages.Message):
     """ConferenceForms -- multiple Conference outbound form message"""
     items = messages.MessageField(ConferenceForm, 1, repeated=True)
+
+
+class ConferenceFeaturedSpeakerForm(messages.Message):
+    """ConferenceFeaturedSpeakerForm - return featured_speakers"""
+    name = messages.StringField(1)
+    featured_speakers = messages.StringField(2, repeated=True)
 
 
 class Session(ndb.Model):

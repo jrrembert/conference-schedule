@@ -92,11 +92,21 @@ indexes:
 
 - kind: Conference
   properties:
+  - name: seatsAvailable
+  - name: name
+
+- kind: Conference
+  properties:
   - name: topics
   - name: name
 
 - kind: Session
   properties:
+  - name: speakers
+  - name: websafeConferenceKey
+
+- kind: Session
+  properties:
   - name: start_time
   - name: name
 
@@ -110,3 +120,8 @@ indexes:
   properties:
   - name: typeOfSession
   - name: name
+
+- kind: Session
+  ancestor: yes
+  properties:
+  - name: speakers
