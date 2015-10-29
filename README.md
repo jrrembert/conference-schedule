@@ -29,15 +29,14 @@ A conference scheduling app and API built on Google App Engine.
 #### Sessions
 
 New model classes: `Session`, `SessionForm`, `SessionForms`
+
 New endpoints/methods: `_copySessionToForm`, `_createSessionObject`, `getConferenceSessions`, `getConferenceSessionsByType`, `getSessionsBySpeaker`, `createSession`
+
 New tasks/cron: `SendSessionConfirmationEmailHandler`
 
 1. Sessions are descendent objects for an individual Conference class ie. a Conference can have many sessions, but a session can only belong to a single conference.
-
 2. Sessions can only be edited by the conference organizer. This is intentional in order to give the conference owner greater quality control over outward-facing conference content.
-
 3. Since sometimes a session may be something like a panel discussion or fireside chat, a session is permitted to have one or more speakers. Speakers are implemented as a StringProperty repeated to account for this.
-
 4. A new task was added to send an email to the organizer when a new session is added.
 
 Next steps:
@@ -64,7 +63,9 @@ If I did implement Speakers as a separate entity, this is how I would probably d
 #### Wishlists
 
 New model classes: `ProfileWishListForm`
+
 New endpoints/methods: `_create_or_update_wishlist_object`, `getSessionsInWishList`, `addSessionToWishList`
+
 New tasks/cron: None
 
 1.  Rather than create a new model class, the Profile class was modified to accept a list of session keys under a new Profile field. This was done for a few reasons:
@@ -77,7 +78,9 @@ New tasks/cron: None
 #### Additional Queries
 
 New model classes: `SessionQueryForm`, `SessionQueryForms`
+
 New endpoints/methods: `_getSessionQuery`, `_formatSessionsFilters`, `querySessions`, `querySessionsSpecial`
+
 New tasks/cron: None
 
 1. The "Problem Query". Since session types not equal to workshops and start times after 7 pm are both inequalities, I couldn't just chain filters together until I got a result. I couldn't quickly arrive at an efficient solution so my current solution is far less elegant that it should be and unfortunately quite hard-coded. 
@@ -93,7 +96,9 @@ Next steps:
 #### Featured Speakers and additionial Tasks
 
 New model classes: `ConferenceFeaturedSpeakerForm`
+
 New endpoints/methods: `getFeaturedSpeaker`, `_cacheConferenceFeaturedSpeaker`, `_cacheFeaturedSpeakerInfo`
+
 New tasks/cron: `SetFeaturedSpeakerHandler`, `RefreshFeaturedSpeakerCacheHandler`
 
 1. The `getFeaturedSpeaker` endpoint takes a conference key as a parameter and returns the current featured speaker(s) for said conference. The information needed is retrieved solely from memcache.
