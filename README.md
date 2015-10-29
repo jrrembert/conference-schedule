@@ -114,8 +114,6 @@ Next steps:
 2. Alter update/delete methods to updated featured speaker cache on change. 
 
 
-### Links
-
 [1]: https://developers.google.com/appengine
 [2]: http://python.org
 [3]: https://developers.google.com/appengine/docs/python/endpoints/
