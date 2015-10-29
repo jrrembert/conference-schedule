@@ -30,10 +30,19 @@ handlers:       # static then dynamic
   upload: templates/index\.html
   secure: always
 
-- url: /tasks/send_confirmation_email
+- url: /tasks/send_conference_confirmation_email
+  script: main.app
+
+- url: /tasks/send_session_confirmation_email
+  script: main.app
+
+- url: /tasks/set_featured_speaker
   script: main.app
 
 - url: /crons/set_announcement
+  script: main.app
+
+- url: /crons/refresh_featured_speaker_cache
   script: main.app
 
 - url: /_ah/spi/.*
