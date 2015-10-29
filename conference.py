@@ -269,68 +269,6 @@ class ConferenceApi(remote.Service):
         return self._copyConferenceToForm(conf, getattr(prof, 'displayName'))
 
 
-    def _cacheFeaturedSpeakerInfo(self, session_data):
-        """Keep a tally of potential featured speakers in memcache."""
-        existing_speakers = []
-
-        # the type differs depending on whether _cacheFeaturedSpeakerInfo
-        # is being called via a task or cron job. 
-        if isinstance(session_data['speakers'], list):
-            speakers = session_data['speakers']
-        else:
-            speakers = ast.literal_eval(session_data['speakers'])
-   
-        # If a session has more than one speaker, try to add them to memcache,
-        # increment number of sessions for that speaker otherwise
-        if len(speakers) > 1:
-            existing_speakers = memcache.add_multi(
-                {"%s_%s" % (session_data['websafeConferenceKey'], speaker): 1 for speaker in speakers})
-            if existing_speakers:
-                [memcache.incr("%s_%s" % (session_data['websafeConferenceKey'], speaker)) for speaker in speakers]
-            return
-
-        # Do the same as above, except for single speakers
-        conf_speaker_key = "%s_%s" % (
-            session_data['websafeConferenceKey'], speakers[0])
-        
-        # Increment key if it exists, add it to memcache otherwise.
-        incr = memcache.incr(conf_speaker_key)
-        if incr is None:
-            memcache.add(conf_speaker_key, value=1)
- 
-
-    def _cacheConferenceFeaturedSpeaker(self, websafeConferenceKey):
-        """Determine a conference's featured speaker(s) and store them in
-           memcache."""
-        conference = ndb.Key(urlsafe=websafeConferenceKey).get()
-        session_speakers = Session.query(ancestor=conference.key).\
-            fetch(projection=[Session.speakers])
-        featured_speakers = []
-
-        speakers = [speaker.speakers[0] for speaker in session_speakers]
-        cached_speakers = memcache.get_multi(speakers, key_prefix="%s_" % websafeConferenceKey)
-        
-        # If no results are returned, cache may need to be refreshed.
-        if cached_speakers is {}:
-            raise endpoints.BadRequestException(
-                'No entries were found for featured speakers. There are either no speakers assigned to a conference or the cache needs to be refreshed.')
-
-        # Find value for the highest number of sessions given by speaker
-        if cached_speakers.values():
-            session_num = max(cached_speakers.values())
-
-            # Return all speakers matching session_num
-            featured_speakers = [speaker for speaker, value in cached_speakers.iteritems() if value == session_num]
-            conference.featured_speakers = featured_speakers
-            conference.put()
-
-        cfsf = ConferenceFeaturedSpeakerForm()
-        setattr(cfsf, 'featured_speakers', featured_speakers or ['TBA'])
-        setattr(cfsf, 'name', getattr(conference, 'name'))
-
-        return cfsf
-
-
     @endpoints.method(ConferenceForm, ConferenceForm, path='conference',
             http_method='POST', name='createConference')
     def createConference(self, request):
@@ -824,6 +762,67 @@ class ConferenceApi(remote.Service):
 
 
 # - - - Featured Speakers - - - - - - - - - - - - - - - - - - - -
+
+    def _cacheFeaturedSpeakerInfo(self, session_data):
+        """Keep a tally of potential featured speakers in memcache."""
+        existing_speakers = []
+
+        # the type differs depending on whether _cacheFeaturedSpeakerInfo
+        # is being called via a task or cron job. 
+        if isinstance(session_data['speakers'], list):
+            speakers = session_data['speakers']
+        else:
+            speakers = ast.literal_eval(session_data['speakers'])
+   
+        # If a session has more than one speaker, try to add them to memcache,
+        # increment number of sessions for that speaker otherwise
+        if len(speakers) > 1:
+            existing_speakers = memcache.add_multi(
+                {"%s_%s" % (session_data['websafeConferenceKey'], speaker): 1 for speaker in speakers})
+            if existing_speakers:
+                [memcache.incr("%s_%s" % (session_data['websafeConferenceKey'], speaker)) for speaker in speakers]
+            return
+
+        # Do the same as above, except for single speakers
+        conf_speaker_key = "%s_%s" % (
+            session_data['websafeConferenceKey'], speakers[0])
+        
+        # Increment key if it exists, add it to memcache otherwise.
+        incr = memcache.incr(conf_speaker_key)
+        if incr is None:
+            memcache.add(conf_speaker_key, value=1)
+ 
+
+    def _cacheConferenceFeaturedSpeaker(self, websafeConferenceKey):
+        """Determine a conference's featured speaker(s) and store them in
+           memcache."""
+        conference = ndb.Key(urlsafe=websafeConferenceKey).get()
+        session_speakers = Session.query(ancestor=conference.key).\
+            fetch(projection=[Session.speakers])
+        featured_speakers = []
+
+        speakers = [speaker.speakers[0] for speaker in session_speakers]
+        cached_speakers = memcache.get_multi(speakers, key_prefix="%s_" % websafeConferenceKey)
+        
+        # If no results are returned, cache may need to be refreshed.
+        if cached_speakers is {}:
+            raise endpoints.BadRequestException(
+                'No entries were found for featured speakers. There are either no speakers assigned to a conference or the cache needs to be refreshed.')
+
+        # Find value for the highest number of sessions given by speaker
+        if cached_speakers.values():
+            session_num = max(cached_speakers.values())
+
+            # Return all speakers matching session_num
+            featured_speakers = [speaker for speaker, value in cached_speakers.iteritems() if value == session_num]
+            conference.featured_speakers = featured_speakers
+            conference.put()
+
+        cfsf = ConferenceFeaturedSpeakerForm()
+        setattr(cfsf, 'featured_speakers', featured_speakers or ['TBA'])
+        setattr(cfsf, 'name', getattr(conference, 'name'))
+
+        return cfsf
 
     @endpoints.method(FEATURED_SPEAKER_GET_REQUEST, ConferenceFeaturedSpeakerForm,
         path='conference/{websafeConferenceKey}/featuredspeaker', 

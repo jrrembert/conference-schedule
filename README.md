@@ -36,7 +36,7 @@ New tasks/cron: `SendSessionConfirmationEmailHandler`
 
 2. Sessions can only be edited by the conference organizer. This is intentional in order to give the conference owner greater quality control over outward-facing conference content.
 
-3. Since sometimes a session may be something like a panel discussion or fireside chat, a session is permitted to have one or more speakers.
+3. Since sometimes a session may be something like a panel discussion or fireside chat, a session is permitted to have one or more speakers. Speakers are implemented as a StringProperty repeated to account for this.
 
 4. A new task was added to send an email to the organizer when a new session is added.
 
@@ -44,6 +44,22 @@ Next steps:
 
 1. Normalize parameters sent to `getConferenceSessionsByType` and `getSessionsBySpeaker`. Currently entering something like 'Python' will not match a session named 'python' which is obviously suboptimal.
 2. Create endpoint to allow an organizer to edit/update sessions.
+
+#### Speakers
+
+I decided not to implement speakers as a separate entity at this time. This was done to simplify the data schema and keep the indexes clean. It's also not clear to me that a separate entity is even needed considering we already have a Profile class that is essentially what we're looking for.
+
+If I did implement Speakers as a separate entity, this is how I would probably do it:
+
+1. Extend the Profile class by adding additional fields needed to store potential sessions spoken at. A new field for email will likely need to added and enforced as unique.
+2. Move away from storing names for Speakers and Featured Speakers and start storing Profile keys. This would allow speakers to be easily queried.
+3. Since only conference organizers can add/update/delete sessions and a potential speaker may or may not have registered a user profile yet, validation measures will be needed.
+    1. Organizers add speakers to a session by email. They can add and remove speakers via email after the session is created.
+    2. Email is used to get the speaker's Profile object. If it doesn't exist, create one.
+    3. When a speaker logs in via Google sign-in for the first time, their email is compared against emails in the datastore. If they have been added as a speaker previously and are logging in for the first time, they should be logged into that Profile.
+    4. If they register with an email different from the one the organizer used, a new Profile will be created, but they will not be able to access the sessions they speak at.
+    5. A speaker cannot edit or delete a session, even if they are speaking at it (unless they happen to also be the organizer). Only organizers have permission to do this.
+
 
 #### Wishlists
 
