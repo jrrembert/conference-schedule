@@ -427,6 +427,7 @@ class ConferenceApi(remote.Service):
             raise endpoints.BadRequestException("Session 'name' field required")
 
         data = {field.name: getattr(request, field.name) for field in request.all_fields()}
+        del data['websafeKey']
         del data['organizer_display_name']
 
         # add default values for those missing (both data model & outbound Message)
