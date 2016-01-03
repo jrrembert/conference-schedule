@@ -14,7 +14,7 @@ __author__ = 'wesc+api@google.com (Wesley Chun)'
 
 
 import ast
-from datetime import datetime
+import datetime
 import json
 import os
 import time
@@ -60,9 +60,8 @@ DEFAULTS = {
 SESSION_DEFAULTS = {
     "highlights": "None set",
     "speakers": [u"TBA"],
-    "duration": "",
+    "duration": 1,
     "typeOfSession": "None set",
-    "start_time": 0
 }
 
 OPERATORS = {
@@ -201,12 +200,12 @@ class ConferenceApi(remote.Service):
 
         # convert dates from strings to Date objects; set month based on start_date
         if data['startDate']:
-            data['startDate'] = datetime.strptime(data['startDate'][:10], "%Y-%m-%d").date()
+            data['startDate'] = datetime.datetime.strptime(data['startDate'][:10], "%Y-%m-%d").date()
             data['month'] = data['startDate'].month
         else:
             data['month'] = 0
         if data['endDate']:
-            data['endDate'] = datetime.strptime(data['endDate'][:10], "%Y-%m-%d").date()
+            data['endDate'] = datetime.datetime.strptime(data['endDate'][:10], "%Y-%m-%d").date()
 
         # set seatsAvailable to be same as maxAttendees on creation
         if data["maxAttendees"] > 0:
@@ -259,7 +258,7 @@ class ConferenceApi(remote.Service):
             if data not in (None, []):
                 # special handling for dates (convert string to Date)
                 if field.name in ('startDate', 'endDate'):
-                    data = datetime.strptime(data, "%Y-%m-%d").date()
+                    data = datetime.datetime.strptime(data, "%Y-%m-%d").date()
                     if field.name == 'startDate':
                         conf.month = data.month
                 # write to Conference object
@@ -400,7 +399,7 @@ class ConferenceApi(remote.Service):
         for field in sf.all_fields():
             if hasattr(session, field.name):
                 # convert DateTime to datetime string; just copy others
-                if field.name == 'date':
+                if field.name == 'date' or field.name == 'start_time':
                     setattr(sf, field.name, str(getattr(session, field.name)))
                 else:
                     setattr(sf, field.name, getattr(session, field.name))
@@ -424,7 +423,7 @@ class ConferenceApi(remote.Service):
         
         if not request.name:
             raise endpoints.BadRequestException("Session 'name' field required")
-    
+
         data = {field.name: getattr(request, field.name) for field in request.all_fields()}
         del data['organizer_display_name']
 
@@ -432,14 +431,11 @@ class ConferenceApi(remote.Service):
         for df in SESSION_DEFAULTS:
             if data[df] in (None, []):
                 data[df] = SESSION_DEFAULTS[df]
-                
-        if not isinstance(data['start_time'], int) or not (0 <= data['start_time'] <= 24):
-            raise endpoints.BadRequestException("Session 'start_time' must be an integer from 0 to 23.")
 
-        # convert dates from strings to Date objects; set month based on start_date
         if data['date']:
-            data['date'] = datetime.strptime(data['date'][11:16], "%H:%M").date()
-            data['start_time'] = data['date'].hour
+            data['date'] = datetime.datetime.strptime(data['date'][0:11], "%m/%d/%Y").date()
+        if data['start_time']:    
+            data['start_time'] = datetime.datetime.strptime(data['start_time'][0:5], "%H:%M").time()
         
         conf_key = ndb.Key(urlsafe=request.websafeConferenceKey).get().key
         session_id = Session.allocate_ids(size=1, parent=conf_key)[0]
