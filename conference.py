@@ -414,12 +414,14 @@ class ConferenceApi(remote.Service):
     def _createSessionObject(self, request):
         """Create a Session object, returning a SessionForm request."""
         user = endpoints.get_current_user()
-        if not user:
-            raise endpoints.UnauthorizedException('Authorization required')
+        conference = ndb.Key(urlsafe=request.websafeConferenceKey).get()
         user_id = _getUserId()
 
+        if user_id != conference.organizerUserId:
+            raise endpoints.UnauthorizedException('Not authorized to add sessions to this conference.')
+        
         profile = ndb.Key(Profile, _getUserId()).get()
-
+        
         if not request.name:
             raise endpoints.BadRequestException("Session 'name' field required")
     
