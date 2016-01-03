@@ -405,7 +405,7 @@ class ConferenceApi(remote.Service):
                     setattr(sf, field.name, getattr(session, field.name))
             elif field.name == "websafeKey":
                 setattr(sf, field.name, session.key.urlsafe())
-                
+
         if displayName:
             setattr(sf, 'organizer_display_name', displayName)
         sf.check_initialized()
@@ -474,6 +474,9 @@ class ConferenceApi(remote.Service):
             raise endpoints.NotFoundException(
                 'No conference found with key: %s' % request.websafeConferenceKey)
         
+        sessions = Session.query(
+            Session.websafeConferenceKey == request.websafeConferenceKey)
+
         return SessionForms(
             items=[self._copySessionToForm(session, getattr(conference, 'organizerUserId')) for session in sessions])
 
