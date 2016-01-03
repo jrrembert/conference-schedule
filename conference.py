@@ -432,9 +432,8 @@ class ConferenceApi(remote.Service):
         for df in SESSION_DEFAULTS:
             if data[df] in (None, []):
                 data[df] = SESSION_DEFAULTS[df]
-                setattr(request, df, SESSION_DEFAULTS[df])
-
-        if not isinstance(request.start_time, int) or not (0 <= request.start_time <= 24):
+                
+        if not isinstance(data['start_time'], int) or not (0 <= data['start_time'] <= 24):
             raise endpoints.BadRequestException("Session 'start_time' must be an integer from 0 to 23.")
 
         # convert dates from strings to Date objects; set month based on start_date
@@ -448,8 +447,9 @@ class ConferenceApi(remote.Service):
         data['key'] = session_key
         data['organizer_user_id'] = user_id
 
-        Session(**data).put()
-
+        session = Session(**data)
+        session.put()
+        
         # Update speaker info in memcache
         taskqueue.add(params={'speakers': repr(data['speakers']),
             'websafeConferenceKey': data['websafeConferenceKey']},
@@ -461,7 +461,7 @@ class ConferenceApi(remote.Service):
             url='/tasks/send_session_confirmation_email'
             )
         
-        return self._copySessionToForm(request, getattr(profile, 'displayName'))
+        return self._copySessionToForm(session, getattr(profile, 'displayName'))
 
 
     @endpoints.method(SESSION_GET_REQUEST, SessionForms,
