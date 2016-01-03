@@ -567,7 +567,8 @@ class ConferenceApi(remote.Service):
 
         sessions = []
 
-        sessions_after_seven_pm = Session.query(Session.start_time >= 18)
+        seven_pm = datetime.time(19,0)
+        sessions_after_seven_pm = Session.query(Session.start_time >= seven_pm)
         
         for session in sessions_after_seven_pm:
             if session.typeOfSession != 'Workshop':
