@@ -103,9 +103,19 @@ CONF_POST_REQUEST = endpoints.ResourceContainer(
 
 SESSION_GET_REQUEST = endpoints.ResourceContainer(
     message_types.VoidMessage,
+    websafeConferenceKey=messages.StringField(1)
+    )
+
+SESSION_TYPE_GET_REQUEST = endpoints.ResourceContainer(
+    SessionForms,
     websafeConferenceKey=messages.StringField(1),
-    typeOfSession=messages.StringField(2),
-    speaker=messages.StringField(3)
+    typeOfSession=messages.StringField(2, required=True)
+    )
+
+SESSION_SPEAKER_GET_REQUEST = endpoints.ResourceContainer(
+    SessionForms,
+    websafeConferenceKey=messages.StringField(1),
+    speaker=messages.StringField(2, required=True)
     )
 
 SESSION_POST_REQUEST = endpoints.ResourceContainer(
@@ -481,8 +491,8 @@ class ConferenceApi(remote.Service):
             items=[self._copySessionToForm(session, getattr(conference, 'organizerUserId')) for session in sessions])
 
 
-    @endpoints.method(SESSION_GET_REQUEST, SessionForms,
-        path='conference/{websafeConferenceKey}/sessions/{typeOfSession}',
+    @endpoints.method(SESSION_TYPE_GET_REQUEST, SessionForms,
+        path='conference/{websafeConferenceKey}/sessions/typeOfSession/{typeOfSession}',
         http_method='GET', name='getConferenceSessionsByType')
     def getConferenceSessionsByType(self, request):
         """Find sessions of a specific type for a given conference."""
@@ -491,7 +501,7 @@ class ConferenceApi(remote.Service):
         if not conference:
             raise endpoints.NotFoundException(
                 'No conference found with key: %s' % request.websafeConferenceKey)
-        
+
         sessions = Session.query(
             Session.typeOfSession == request.typeOfSession, 
             ancestor=conference.key)
@@ -500,8 +510,8 @@ class ConferenceApi(remote.Service):
             items=[self._copySessionToForm(session, getattr(conference, 'organizerUserId')) for session in sessions])
 
 
-    @endpoints.method(SESSION_GET_REQUEST, SessionForms,
-        path='conference/{websafeConferenceKey}/sessions/{speaker}',
+    @endpoints.method(SESSION_SPEAKER_GET_REQUEST, SessionForms,
+        path='conference/{websafeConferenceKey}/sessions/speakers/{speaker}',
         http_method='GET', name='getConferenceSessionsBySpeaker')
     def getSessionsBySpeaker(self, request):
         """Find sessions featuring a specific speaker for a given conference."""
