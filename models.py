@@ -77,11 +77,11 @@ class ConferenceForm(messages.Message):
     organizerUserId = messages.StringField(3)
     topics          = messages.StringField(4, repeated=True)
     city            = messages.StringField(5)
-    startDate       = messages.StringField(6) #DateTimeField()
+    startDate       = messages.StringField(6) # DateTimeField()
     month           = messages.IntegerField(7)
     maxAttendees    = messages.IntegerField(8)
     seatsAvailable  = messages.IntegerField(9)
-    endDate         = messages.StringField(10) #DateTimeField()
+    endDate         = messages.StringField(10) # DateTimeField()
     featured_speakers = messages.StringField(11, repeated=True)
     websafeKey      = messages.StringField(12)
     organizerDisplayName = messages.StringField(13)
@@ -118,10 +118,11 @@ class SessionForm(messages.Message):
     speakers = messages.StringField(3, repeated=True)
     duration = messages.IntegerField(4)
     typeOfSession = messages.StringField(5)
-    date = messages.StringField(6)  # DateTimeField()
-    start_time = messages.StringField(7)
+    date = messages.StringField(6)  # DateField()
+    start_time = messages.StringField(7)  # TimeField()
     websafeConferenceKey = messages.StringField(8)
-    organizer_display_name = messages.StringField(9)
+    websafeKey = messages.StringField(9)
+    organizer_display_name = messages.StringField(10)
 
 
 class SessionForms(messages.Message):
