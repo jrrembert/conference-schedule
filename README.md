@@ -38,6 +38,10 @@ New tasks/cron: `SendSessionConfirmationEmailHandler`
 2. Sessions can only be edited by the conference organizer. This is intentional in order to give the conference owner greater quality control over outward-facing conference content.
 3. Since sometimes a session may be something like a panel discussion or fireside chat, a session is permitted to have one or more speakers. Speakers are implemented as a StringProperty repeated to account for this.
 4. A new task was added to send an email to the organizer when a new session is added.
+5. A note on Session property types:
+  * IntegerProperty is being used for `duration`, but it would probably be better to change this to a TimeProperty and rename to `end_date`.
+  * Date is used for `date` since hour, minute, etc data isn't needed. Dates must be entered as MM/DD/YYYY.
+  * TimeProperty is used for `start_date` since calendar date isn't needed. Times must be entered as HH:MM. 
 
 Next steps:
 
@@ -83,8 +87,8 @@ New endpoints/methods: `_getSessionQuery`, `_formatSessionsFilters`, `querySessi
 
 New tasks/cron: None
 
-1. The "Problem Query". Since session types not equal to workshops and start times after 7 pm are both inequalities, I couldn't just chain filters together until I got a result. I couldn't quickly arrive at an efficient solution so my current solution is far less elegant that it should be and unfortunately quite hard-coded. 
-Having an "AND" query made this is a bit easier. I chose sessions after 7 pm as the Datastore inequality query since in my experience, very few conferences feature sessions after that time (and thus fewer results and fewer system resources needed). Then it was just a matter of interating through the results and adding records that didn't equal "Workshop" into a new array and returning it.
+1. The "Problem Query". Since session types are not equal to workshops and start times after 7 pm are both inequalities, I couldn't just chain filters together until I got a result. I couldn't quickly arrive at an efficient solution so my current solution is far less elegant that it should be and unfortunately quite hard-coded. 
+Having an "AND" query made this is a bit easier. I chose sessions after 7 pm as the Datastore inequality query since in my experience, very few conferences feature sessions after that time (and thus fewer results and fewer system resources needed). Then it was just a matter of iterating through the results and adding records that didn't equal "Workshop" and returning a new list.
 2. This is just really bad as it stands. The name of the endpoint sucks and having such a specific query hard-coded is pretty much useless. I will need to dive into the two private helper methods to divy the query up into something much more abstract and useful.
 
 Next steps: 
