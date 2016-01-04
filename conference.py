@@ -569,10 +569,8 @@ class ConferenceApi(remote.Service):
 
         seven_pm = datetime.time(19,0)
         sessions_after_seven_pm = Session.query(Session.start_time >= seven_pm)
-        
-        for session in sessions_after_seven_pm:
-            if session.typeOfSession != 'Workshop':
-                sessions.append(session)
+
+        sessions = [sessions.append(session) for session in sessions_after_seven_pm if session.typeOfSession != 'Workshop']
 
         # Fetch organizer displayName from profiles
         organizers = [ndb.Key(Profile, session.organizer_user_id) for session in sessions]
@@ -639,8 +637,8 @@ class ConferenceApi(remote.Service):
 
 # - - - Wishlist methods - - - - - - - - - - - - - - - - - - -
 
-    def _create_or_update_wishlist_object(self, request, session):
-        """Add a session to a wishlist; create a wishlist if list doens't exist."""
+    def _create_or_update_wishlist_object(self, request, session, delete=False):
+        """Add a session to a wishlist; create a wishlist if list doesn't exist."""
         user = endpoints.get_current_user()
         if not user:
             raise endpoints.UnauthorizedException('Authorization required')
@@ -649,14 +647,24 @@ class ConferenceApi(remote.Service):
         # Get logged in user profile
         profile_key = ndb.Key(Profile, user_id)
         profile = self._getProfileFromUser()
-        
+       
         # Get current session key array and add new session to array;
         # return profile unchanged if session is already present
         session_keys = profile.wishlist_session_keys
         s_key = session.key.urlsafe()
 
+        if delete is True:
+            if s_key not in session_keys:
+                raise endpoints.NotFoundException('Session not found')
+
+            session_keys.remove(s_key)
+            setattr(profile, 'wishlist_session_keys', session_keys)
+            profile.put()
+
+            return self._copyProfileToForm(profile)
+
         if s_key not in session_keys:
-            session_keys.append(session.key.urlsafe())
+            session_keys.append(s_key)
             setattr(profile, 'wishlist_session_keys', session_keys)
             profile.put()
             
@@ -697,6 +705,15 @@ class ConferenceApi(remote.Service):
         """Add a conference session to a user's wishlist."""
         session = ndb.Key(urlsafe=request.websafeSessionKey).get()
         return self._create_or_update_wishlist_object(request, session)
+
+
+    @endpoints.method(WISHLIST_POST_REQUEST, ProfileForm,
+        path='wishlist/{websafeSessionKey}/delete',
+        http_method='POST', name='removeSessionFromWishList')
+    def removeSessionFromWishList(self, request):
+        """Remove a conference session from a user's wishlist."""
+        session = ndb.Key(urlsafe=request.websafeSessionKey).get()
+        return self._create_or_update_wishlist_object(request, session, delete=True)
 
 
 # - - - Profile objects - - - - - - - - - - - - - - - - - - -
