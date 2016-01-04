@@ -104,12 +104,13 @@ New model classes: `ConferenceFeaturedSpeakerForm`
 New endpoints/methods: `getFeaturedSpeaker`, `_cacheConferenceFeaturedSpeaker`, `_cacheFeaturedSpeakerInfo`
 
 New tasks/cron: `SetFeaturedSpeakerHandler`, `RefreshFeaturedSpeakerCacheHandler`
-
+ 
 1. The `getFeaturedSpeaker` endpoint takes a conference key as a parameter and returns the current featured speaker(s) for said conference. The information needed is retrieved solely from memcache.
 1. Just as a session can have multiple speakers, a conference can have multiple featured speakers. A speaker can be a featured speaker if they have, or are tied for, the most sessions spoken at within a specific conference.
 2. A new task was added to handle calculating and storing featured speaker info in memcache. This task is invoked in the `_createSessionObject` to update featured speakers everytime a new session is added.
 3. A new cron job was also added to periodically update the featured speaker cache. This was done since no functionality exists in the app currently to update the cache when conferences or sessions are updated/deleted. The job flushes the cache, grabs all Session objects, and calls `_cacheFeaturedSpeakerInfo` to replicate the process laid out in #2.
 4. `get_multi` and projection queries were used in the fetching and storing of featured speaker data as query optimizations.
+5. Note: speakers and the number of sessions they are speaking at are stored in memcache with a key of `websafeConferenceKey_speakername`. For example, if a conference has a key of 1234 and a speaker named `Jeff` is speaking, the memcache key is `1234_Jeff`.
 
 
 Next steps:
