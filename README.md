@@ -41,7 +41,7 @@ New tasks/cron: `SendSessionConfirmationEmailHandler`
 5. A note on Session property types:
   * IntegerProperty is being used for `duration`, but it would probably be better to change this to a TimeProperty and rename to `end_date`.
   * Date is used for `date` since hour, minute, etc data isn't needed. Dates must be entered as MM/DD/YYYY.
-  * TimeProperty is used for `start_date` since calendar date isn't needed. Times must be entered as HH:MM. 
+  * TimeProperty is used for `start_time` since calendar date isn't needed. Times must be entered as HH:MM. 
 
 Next steps:
 
@@ -66,7 +66,7 @@ If I did implement Speakers as a separate entity, this is how I would probably d
 
 #### Wishlists
 
-New model classes: `ProfileWishListForm`
+New classes: `ProfileWishListForm`
 
 New endpoints/methods: `_create_or_update_wishlist_object`, `getSessionsInWishList`, `addSessionToWishList`
 
@@ -74,8 +74,8 @@ New tasks/cron: None
 
 1.  Rather than create a new model class, the Profile class was modified to accept a list of session keys under a new Profile field. This was done for a few reasons:
    1. The API supports multiple conferences from multiple possible users. It just makes sense to create a model where a user in this system can attend multiple conferences, attend multiple sessions, but have all this information stored under a single user profile rather than keep track of several Wishlist instances for each conference.
-   1. Less computational overhead. Having a potentially many Wishlist entities per Profile, each containing potentially multiple Sessions, one would likely be looking at quadratic time lookups. This at least ensures the possibility of linear time lookups.
    2. Storing only Session keys rather than entire Session objects reduces Profile model bloat.
+   3. `PUT` is used in lieu of `DELETE` for removeSessionsInWishlist since we are updating sessions in the wishlist, rather than delete the session altogether.
 2. All Sessions are given a unique id to preserve uniqueness across multiple conferences.
 
 
@@ -101,16 +101,16 @@ Next steps:
 
 New model classes: `ConferenceFeaturedSpeakerForm`
 
-New endpoints/methods: `getFeaturedSpeaker`, `_cacheConferenceFeaturedSpeaker`, `_cacheFeaturedSpeakerInfo`
+New endpoints/methods: `getFeaturedSpeaker`, `_cacheConferenceFeaturedSpeaker`
 
-New tasks/cron: `SetFeaturedSpeakerHandler`, `RefreshFeaturedSpeakerCacheHandler`
+New tasks/cron: `SetFeaturedSpeakerHandler`
  
 1. The `getFeaturedSpeaker` endpoint takes a conference key as a parameter and returns the current featured speaker(s) for said conference. The information needed is retrieved solely from memcache.
 1. Just as a session can have multiple speakers, a conference can have multiple featured speakers. A speaker can be a featured speaker if they have, or are tied for, the most sessions spoken at within a specific conference.
 2. A new task was added to handle calculating and storing featured speaker info in memcache. This task is invoked in the `_createSessionObject` to update featured speakers everytime a new session is added.
 3. A new cron job was also added to periodically update the featured speaker cache. This was done since no functionality exists in the app currently to update the cache when conferences or sessions are updated/deleted. The job flushes the cache, grabs all Session objects, and calls `_cacheFeaturedSpeakerInfo` to replicate the process laid out in #2.
 4. `get_multi` and projection queries were used in the fetching and storing of featured speaker data as query optimizations.
-5. Note: speakers and the number of sessions they are speaking at are stored in memcache with a key of `websafeConferenceKey_speakername`. For example, if a conference has a key of 1234 and a speaker named `Jeff` is speaking, the memcache key is `1234_Jeff`.
+5. Note: featured speakers are stored in memcache with a key of `websafeConferenceKey`.
 
 
 Next steps:

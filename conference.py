@@ -14,6 +14,7 @@ __author__ = 'wesc+api@google.com (Wesley Chun)'
 
 
 import ast
+from collections import Counter
 import datetime
 import json
 import os
@@ -62,6 +63,7 @@ SESSION_DEFAULTS = {
     "speakers": [u"TBA"],
     "duration": 1,
     "typeOfSession": "None set",
+    "start_time": "00:00"
 }
 
 OPERATORS = {
@@ -409,7 +411,7 @@ class ConferenceApi(remote.Service):
         for field in sf.all_fields():
             if hasattr(session, field.name):
                 # convert DateTime to datetime string; just copy others
-                if field.name == 'date' or field.name == 'start_time':
+                if field.name in ('date', 'start_time'):
                     setattr(sf, field.name, str(getattr(session, field.name)))
                 else:
                     setattr(sf, field.name, getattr(session, field.name))
@@ -562,16 +564,16 @@ class ConferenceApi(remote.Service):
         http_method='POST',
         name='querySessionsSpecial')
     def querySessionsSpecial(self, request):
-        """Return sessions after 7 PM that are not workshops."""
+        """Return sessions before 7 PM that are not workshops."""
         session_query = Session.query()
 
         sessions = []
 
         seven_pm = datetime.time(19,0)
-        sessions_after_seven_pm = Session.query(Session.start_time >= seven_pm)
+        sessions_before_seven_pm = Session.query(Session.start_time <= seven_pm)
 
-        sessions = [sessions.append(session) for session in sessions_after_seven_pm if session.typeOfSession != 'Workshop']
-
+        [sessions.append(session) for session in sessions_before_seven_pm if session.typeOfSession != 'Workshop']
+        
         # Fetch organizer displayName from profiles
         organizers = [ndb.Key(Profile, session.organizer_user_id) for session in sessions]
         profiles = ndb.get_multi(organizers)
@@ -598,8 +600,15 @@ class ConferenceApi(remote.Service):
             q = q.order(Session.name)
 
         for filtr in filters:
-            if filtr["field"] in ["start_time"]:
-                filtr["value"] = int(filtr["value"])
+            if filtr['field'] == 'duration':
+                filtr['value'] = int(filtr['value'])
+            if filtr['field'] == 'date':
+                filtr['value'] = datetime.datetime.strptime(
+                    filtr['value'][0:11], "%m/%d/%Y")
+            if filtr['field'] == 'start_time':
+                filtr['value'] = datetime.datetime.strptime(
+                    filtr['value'][0:6], "%H:%M")
+
             formatted_query = ndb.query.FilterNode(filtr["field"], filtr["operator"], filtr["value"])
             q = q.filter(formatted_query)
 
@@ -709,9 +718,11 @@ class ConferenceApi(remote.Service):
 
     @endpoints.method(WISHLIST_POST_REQUEST, ProfileForm,
         path='wishlist/{websafeSessionKey}/delete',
-        http_method='POST', name='removeSessionFromWishList')
-    def removeSessionFromWishList(self, request):
-        """Remove a conference session from a user's wishlist."""
+        http_method='PUT', name='removeSessionInWishList')
+    def removeSessionInWishList(self, request):
+        """Remove a conference session from a user's wishlist
+           without deleting session.
+        """
         session = ndb.Key(urlsafe=request.websafeSessionKey).get()
         return self._create_or_update_wishlist_object(request, session, delete=True)
 
@@ -795,75 +806,63 @@ class ConferenceApi(remote.Service):
 
 # - - - Featured Speakers - - - - - - - - - - - - - - - - - - - -
 
-    def _cacheFeaturedSpeakerInfo(self, session_data):
-        """Keep a tally of potential featured speakers in memcache."""
-        existing_speakers = []
-
-        # the type differs depending on whether _cacheFeaturedSpeakerInfo
-        # is being called via a task or cron job. 
-        if isinstance(session_data['speakers'], list):
-            speakers = session_data['speakers']
-        else:
-            speakers = ast.literal_eval(session_data['speakers'])
-   
-        # If a session has more than one speaker, try to add them to memcache,
-        # increment number of sessions for that speaker otherwise
-        if len(speakers) > 1:
-            existing_speakers = memcache.add_multi(
-                {"%s_%s" % (session_data['websafeConferenceKey'], speaker): 1 for speaker in speakers})
-            if existing_speakers:
-                [memcache.incr("%s_%s" % (session_data['websafeConferenceKey'], speaker)) for speaker in speakers]
-            return
-
-        # Do the same as above, except for single speakers
-        conf_speaker_key = "%s_%s" % (
-            session_data['websafeConferenceKey'], speakers[0])
-        
-        # Increment key if it exists, add it to memcache otherwise.
-        incr = memcache.incr(conf_speaker_key)
-        if incr is None:
-            memcache.add(conf_speaker_key, value=1)
- 
-
     def _cacheConferenceFeaturedSpeaker(self, websafeConferenceKey):
-        """Determine a conference's featured speaker(s) and store them in
-           memcache."""
+        """Determine a conference's featured speaker(s) and store them, and
+           their sessions, in memcache.
+        """
         conference = ndb.Key(urlsafe=websafeConferenceKey).get()
         session_speakers = Session.query(ancestor=conference.key).\
-            fetch(projection=[Session.speakers])
+            fetch(projection=[Session.speakers, Session.name])
+        speakers = [session.speakers[0] for session in session_speakers]
+        
+        # Find the speaker(s) with the most session(s)
+        speakers_session_count = Counter(speakers)
+        max_value = speakers_session_count.most_common()[0][1]
+
         featured_speakers = []
 
-        speakers = [speaker.speakers[0] for speaker in session_speakers]
-        cached_speakers = memcache.get_multi(speakers, key_prefix="%s_" % websafeConferenceKey)
+        for speaker in speakers_session_count.most_common():   
+            if speaker[1] < max_value:
+                break
+            featured_speakers.append(speaker[0])
+
+        featured_speaker_sessions = {session.name for session in session_speakers if session.speakers[0] in featured_speakers}
         
-        # If no results are returned, cache may need to be refreshed.
-        if cached_speakers is {}:
-            raise endpoints.BadRequestException(
-                'No entries were found for featured speakers. There are either no speakers assigned to a conference or the cache needs to be refreshed.')
+        # Update conference
+        # TODO: refactor into separate taskqueue
+        conference.featured_speakers = featured_speakers
+        conference.put()
 
-        # Find value for the highest number of sessions given by speaker
-        if cached_speakers.values():
-            session_num = max(cached_speakers.values())
+        # Construct value to be stored in memcache
+        featured_speaker_str = "Featured speaker(s): "
+        featured_speaker_str += ", ".join(featured_speakers)
+        featured_speaker_str += ". Session(s): "
+        featured_speaker_str += ", ".join(featured_speaker_sessions) + "."
+            
+        add_memcache_key = memcache.add(
+            key=websafeConferenceKey, 
+            value=str(featured_speaker_str))
+        if add_memcache_key is not None:
+            memcache.set(
+                key=websafeConferenceKey, 
+                value=str(featured_speaker_str))
 
-            # Return all speakers matching session_num
-            featured_speakers = [speaker for speaker, value in cached_speakers.iteritems() if value == session_num]
-            conference.featured_speakers = featured_speakers
-            conference.put()
-
-        cfsf = ConferenceFeaturedSpeakerForm()
-        setattr(cfsf, 'featured_speakers', featured_speakers or ['TBA'])
-        setattr(cfsf, 'name', getattr(conference, 'name'))
-
-        return cfsf
 
     @endpoints.method(FEATURED_SPEAKER_GET_REQUEST, ConferenceFeaturedSpeakerForm,
         path='conference/{websafeConferenceKey}/featuredspeaker', 
         http_method='GET', 
         name='getFeaturedSpeaker')
     def getFeaturedSpeaker(self, request):
-        """Get the featured speaker for a given conference."""
-        return self._cacheConferenceFeaturedSpeaker(request.websafeConferenceKey)
+        """Get the featured speaker for a given conference.
 
+           Returns a string with the speaker name(s) and the session(s) they 
+           are speaking at.
+        """
+        cfsf = ConferenceFeaturedSpeakerForm()
+        setattr(cfsf, 'featured_speaker_str', 
+            memcache.get(key=request.websafeConferenceKey)
+        )
+        return cfsf
 
 # - - - Announcements - - - - - - - - - - - - - - - - - - - -
 

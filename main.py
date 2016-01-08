@@ -28,24 +28,6 @@ class SetAnnouncementHandler(webapp2.RequestHandler):
         self.response.set_status(204)
 
 
-class RefreshFeaturedSpeakerCacheHandler(webapp2.RequestHandler):
-    def get(self):
-        """Periodically refresh featured speaker info in memcache."""
-        
-        # Start with a fresh cache
-        memcache.flush_all()
-
-        # Iterate through all sessions, updating featured speaker cache
-        conf_api = ConferenceApi()        
-        sessions = Session.query()
-        for session in sessions:
-            session_data = {'speakers': session.speakers,
-            'websafeConferenceKey': session.websafeConferenceKey}
-            conf_api._cacheFeaturedSpeakerInfo(session_data)
-        
-        self.response.set_status(204)
-
-
 class SendConferenceConfirmationEmailHandler(webapp2.RequestHandler):
     def post(self):
         """Send email confirming Conference creation."""
@@ -76,13 +58,27 @@ class SendSessionConfirmationEmailHandler(webapp2.RequestHandler):
 
 class SetFeaturedSpeakerHandler(webapp2.RequestHandler):
     def post(self):
-        """Calculate number of sessions for each speaker in conference."""
-        session_data = {'speakers': self.request.get('speakers'),
-            'websafeConferenceKey': self.request.get('websafeConferenceKey')}
-        
+        """Set the featured speaker(s) for a conference."""
         conf_api = ConferenceApi()
-        conf_api._cacheFeaturedSpeakerInfo(session_data)
+        conf_api._cacheConferenceFeaturedSpeaker(
+            self.request.get('websafeConferenceKey')
+        )
         self.response.set_status(204)        
+
+
+class RefreshFeaturedSpeakerCacheHandler(webapp2.RequestHandler):
+    def get(self):
+        """Periodically refresh featured speaker info in memcache."""
+        
+        # Start with a fresh cache
+        memcache.flush_all()
+
+        # Iterate through all sessions, updating featured speaker cache
+        conf_api = ConferenceApi()        
+        conf_api._cacheConferenceFeaturedSpeaker(
+            self.request.get('websafeConferenceKey')
+        )
+        self.response.set_status(204) 
 
 
 app = webapp2.WSGIApplication([

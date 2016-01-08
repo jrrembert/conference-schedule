@@ -94,9 +94,7 @@ class ConferenceForms(messages.Message):
 
 class ConferenceFeaturedSpeakerForm(messages.Message):
     """ConferenceFeaturedSpeakerForm - return featured_speakers"""
-    name = messages.StringField(1)
-    featured_speakers = messages.StringField(2, repeated=True)
-
+    featured_speaker_str = messages.StringField(1)
 
 class Session(ndb.Model):
     """Session - Session object"""
@@ -105,7 +103,7 @@ class Session(ndb.Model):
     speakers = ndb.StringProperty(repeated=True)
     duration = ndb.IntegerProperty()
     typeOfSession = ndb.StringProperty()
-    date = ndb.DateProperty()
+    date = ndb.DateProperty(required=True)
     start_time = ndb.TimeProperty()
     websafeConferenceKey = ndb.StringProperty()
     organizer_user_id = ndb.StringProperty()

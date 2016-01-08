@@ -102,6 +102,16 @@ indexes:
 
 - kind: Session
   properties:
+  - name: date
+  - name: name
+
+- kind: Session
+  properties:
+  - name: duration
+  - name: name
+
+- kind: Session
+  properties:
   - name: speakers
   - name: websafeConferenceKey
 
@@ -120,6 +130,12 @@ indexes:
   properties:
   - name: typeOfSession
   - name: name
+
+- kind: Session
+  ancestor: yes
+  properties:
+  - name: name
+  - name: speakers
 
 - kind: Session
   ancestor: yes
