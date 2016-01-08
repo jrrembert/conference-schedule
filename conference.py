@@ -490,7 +490,8 @@ class ConferenceApi(remote.Service):
             Session.websafeConferenceKey == request.websafeConferenceKey)
 
         return SessionForms(
-            items=[self._copySessionToForm(session, getattr(conference, 'organizerUserId')) for session in sessions])
+            items=[self._copySessionToForm(session, getattr(conference, 'organizerUserId'))
+                   for session in sessions])
 
 
     @endpoints.method(SESSION_TYPE_GET_REQUEST, SessionForms,
@@ -509,7 +510,8 @@ class ConferenceApi(remote.Service):
             ancestor=conference.key)
 
         return SessionForms(
-            items=[self._copySessionToForm(session, getattr(conference, 'organizerUserId')) for session in sessions])
+            items=[self._copySessionToForm(session, getattr(conference, 'organizerUserId')) 
+                   for session in sessions])
 
 
     @endpoints.method(SESSION_SPEAKER_GET_REQUEST, SessionForms,
@@ -528,7 +530,8 @@ class ConferenceApi(remote.Service):
             ancestor=conference.key)
 
         return SessionForms(
-            items=[self._copySessionToForm(session, getattr(conference, 'organizerUserId')) for session in sessions])
+            items=[self._copySessionToForm(session, getattr(conference, 'organizerUserId')) 
+                   for session in sessions])
 
 
     @endpoints.method(SESSION_POST_REQUEST, SessionForm,
@@ -548,7 +551,8 @@ class ConferenceApi(remote.Service):
         sessions = self._getSessionQuery(request)
 
         # Fetch organizer displayName from profiles
-        organizers = [ndb.Key(Profile, session.organizer_user_id) for session in sessions]
+        organizers = [ndb.Key(Profile, session.organizer_user_id) 
+                      for session in sessions]
         profiles = ndb.get_multi(organizers)
 
         display_names = {}
@@ -556,7 +560,8 @@ class ConferenceApi(remote.Service):
             display_names[profile.key.id()] = profile.displayName
 
         return SessionForms(
-            items=[self._copySessionToForm(session, display_names[session.organizer_user_id]) for session in sessions])
+            items=[self._copySessionToForm(session, display_names[session.organizer_user_id]) 
+                   for session in sessions])
 
 
     @endpoints.method(SessionQueryForms, SessionForms,
@@ -572,10 +577,12 @@ class ConferenceApi(remote.Service):
         seven_pm = datetime.time(19,0)
         sessions_before_seven_pm = Session.query(Session.start_time <= seven_pm)
 
-        [sessions.append(session) for session in sessions_before_seven_pm if session.typeOfSession != 'Workshop']
+        [sessions.append(session) for session in sessions_before_seven_pm 
+         if session.typeOfSession != 'Workshop']
         
         # Fetch organizer displayName from profiles
-        organizers = [ndb.Key(Profile, session.organizer_user_id) for session in sessions]
+        organizers = [ndb.Key(Profile, session.organizer_user_id) 
+                      for session in sessions]
         profiles = ndb.get_multi(organizers)
 
         display_names = {}
@@ -583,7 +590,8 @@ class ConferenceApi(remote.Service):
             display_names[profile.key.id()] = profile.displayName
 
         return SessionForms(
-            items=[self._copySessionToForm(session, display_names[session.organizer_user_id]) for session in sessions])
+            items=[self._copySessionToForm(session, display_names[session.organizer_user_id]) 
+                   for session in sessions])
 
 
     def _getSessionQuery(self, request):
@@ -696,9 +704,11 @@ class ConferenceApi(remote.Service):
 
         # Create a a list of tuples pairing each session with the profile of
         # the user who created it.
-        session_keys = [ndb.Key(urlsafe=session) for session in profile.wishlist_session_keys]
+        session_keys = [ndb.Key(urlsafe=session) 
+                        for session in profile.wishlist_session_keys]
         sessions = ndb.get_multi(session_keys)
-        profile_keys = [ndb.Key(Profile, getattr(session, 'organizer_user_id')) for session in sessions]
+        profile_keys = [ndb.Key(Profile, getattr(session, 'organizer_user_id')) 
+                        for session in sessions]
         profiles = ndb.get_multi(profile_keys)
 
         paired_session_profile_tuples = zip(sessions, profiles)
@@ -826,7 +836,8 @@ class ConferenceApi(remote.Service):
                 break
             featured_speakers.append(speaker[0])
 
-        featured_speaker_sessions = {session.name for session in session_speakers if session.speakers[0] in featured_speakers}
+        featured_speaker_sessions = {session.name for session in session_speakers 
+                                     if session.speakers[0] in featured_speakers}
         
         # Update conference
         # TODO: refactor into separate taskqueue
@@ -979,8 +990,9 @@ class ConferenceApi(remote.Service):
             names[profile.key.id()] = profile.displayName
 
         # return set of ConferenceForm objects per Conference
-        return ConferenceForms(items=[self._copyConferenceToForm(conf, names[conf.organizerUserId])\
-         for conf in conferences]
+        return ConferenceForms(
+            items=[self._copyConferenceToForm(conf, names[conf.organizerUserId])\
+                   for conf in conferences]
         )
 
 
